@@ -1,0 +1,63 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logstash
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: logstash
+  template:
+    metadata:
+      labels:
+        app: logstash
+    spec:
+      containers:
+      - name: logstash
+        image: docker.elastic.co/logstash/logstash:7.17.9
+        ports:
+        - containerPort: 5044
+        volumeMounts:
+        - name: config
+          mountPath: /usr/share/logstash/pipeline
+      volumes:
+      - name: config
+        configMap:
+          name: logstash-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: logstash
+  labels:
+    app: logstash
+spec:
+  type: NodePort
+  ports:
+    - port: 5044
+      targetPort: 5044
+      nodePort: 30044
+  selector:
+    app: logstash
+
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logstash-config
+data:
+  logstash.conf: |
+    input {
+      tcp {
+        port => 5044
+        codec => json
+      }
+    }
+    output {
+      elasticsearch {
+        hosts => ["elasticsearch:9200"]
+      }
+    } 

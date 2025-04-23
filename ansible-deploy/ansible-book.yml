@@ -1,0 +1,62 @@
+---
+- name: Deploy Healthcare Chatbot to Kubernetes
+  hosts: all
+  become: yes
+  become_method: sudo
+  become_user: root
+  gather_facts: no  # Skip gathering facts to speed up the process
+
+  vars:
+    ansible_become_pass: "{{ lookup('env', 'SUDO_PASSWORD') }}"
+    kubernetes_files_dir: "{{ playbook_dir }}/../kubernetes"
+    username: "{{ ansible_user }}"
+
+  tasks:
+    - name: Print current working directory
+      shell: pwd
+      register: pwd_output
+
+    - name: Display current working directory
+      debug:
+        msg: "Current working directory: {{ pwd_output.stdout }}"
+        
+    - name: Deploy backend
+      shell: KUBECONFIG=/home/{{ username }}/.kube/config kubectl apply -f {{ kubernetes_files_dir }}/backend.yaml --validate=false
+      register: backend_deploy_result
+      ignore_errors: yes
+
+    - name: Deploy frontend
+      shell: KUBECONFIG=/home/{{ username }}/.kube/config kubectl apply -f {{ kubernetes_files_dir }}/frontend.yaml --validate=false
+      register: frontend_deploy_result
+      ignore_errors: yes
+
+    - name: Deploy elasticsearch
+      shell: KUBECONFIG=/home/{{ username }}/.kube/config kubectl apply -f {{ kubernetes_files_dir }}/elasticsearch.yaml --validate=false
+      register: elasticsearch_deploy_result
+      ignore_errors: yes
+
+    - name: Deploy kibana
+      shell: KUBECONFIG=/home/{{ username }}/.kube/config kubectl apply -f {{ kubernetes_files_dir }}/kibana.yaml --validate=false
+      register: kibana_deploy_result
+      ignore_errors: yes
+
+    - name: Deploy logstash
+      shell: KUBECONFIG=/home/{{ username }}/.kube/config kubectl apply -f {{ kubernetes_files_dir }}/logstash.yaml --validate=false
+      register: logstash_deploy_result
+      ignore_errors: yes
+
+    - name: Wait for pods to be ready
+      shell: KUBECONFIG=/home/{{ username }}/.kube/config kubectl get pods
+      register: kubectl_get_pods
+      until: kubectl_get_pods.stdout.find("Running") != -1
+      retries: 30
+      delay: 10
+      ignore_errors: yes
+
+    - name: Get service information
+      shell: KUBECONFIG=/home/{{ username }}/.kube/config kubectl get svc
+      register: kubectl_get_services
+
+    - name: Display service information
+      debug:
+        msg: "{{ kubectl_get_services.stdout_lines }}" 

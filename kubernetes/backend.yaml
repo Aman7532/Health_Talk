@@ -1,0 +1,49 @@
+---
+# Backend Config
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: flask-config
+data:
+  GOOGLE_API_KEY: "AIzaSyBmspDxrTg51U-kRKRCXEmVv5n3Bki8HXw"
+  # Add any other environment variables here
+---
+# Backend Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flask-app
+  annotations:
+    redeployTimestamp: "2024-05-25T14:30:00Z" # Update this value to force redeployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: flask-app
+  template:
+    metadata:
+      labels:
+        app: flask-app
+    spec:
+      containers:
+      - name: flask-app
+        image: aman7532/flask-app:latest
+        ports:
+        - containerPort: 3000
+        envFrom:
+        - configMapRef:
+            name: flask-config
+---
+# Backend Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: flask-service
+spec:
+  type: NodePort
+  selector:
+    app: flask-app
+  ports:
+  - port: 3000
+    targetPort: 3000
+    nodePort: 32080 

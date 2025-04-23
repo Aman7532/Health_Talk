@@ -1,0 +1,65 @@
+version: '3'
+
+services:
+  backend:
+    build:
+      context: ./healthcare_chatbot_backend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./healthcare_chatbot_backend:/app
+    environment:
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+    command: python chatpdf1.py
+    networks:
+      - chatbot-network
+
+  frontend:
+    build:
+      context: ./healthcare_chatbot_frontend
+      dockerfile: Dockerfile
+    ports:
+      - "80:3000"
+    volumes:
+      - ./healthcare_chatbot_frontend:/app
+    depends_on:
+      - backend
+    networks:
+      - chatbot-network
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.9
+    ports:
+      - "9200:9200"
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    networks:
+      - chatbot-network
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.17.9
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    networks:
+      - chatbot-network
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:7.17.9
+    ports:
+      - "5044:5044"
+    volumes:
+      - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+    depends_on:
+      - elasticsearch
+    networks:
+      - chatbot-network
+
+networks:
+  chatbot-network:
+    driver: bridge 
