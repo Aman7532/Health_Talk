@@ -136,9 +136,7 @@ EOF
         stage('Deploy with Ansible') {
             steps {
                 script {
-                    withEnv(["SUDO_PASSWORD=${SUDO_PASSWORD}"]) {
-                        sh "/opt/homebrew/bin/ansible-playbook -i ./ansible-deploy/inventory ./ansible-deploy/ansible-book.yml --extra-vars \"ansible_become_pass=${SUDO_PASSWORD}\""
-                    }
+                    sh "/opt/homebrew/bin/ansible-playbook -i ./ansible-deploy/inventory ./ansible-deploy/ansible-book.yml"
                 }
             }
         }
