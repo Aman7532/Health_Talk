@@ -57,10 +57,11 @@ pipeline {
                             fi
                         '''
                         
-                        def trainImage = docker.build("${DOCKER_USERNAME}/train-model:latest", '-f Dockerfile .')
-                        withDockerRegistry([credentialsId: "DockerHubCred", url: ""]) {
-                            trainImage.push("${env.BUILD_NUMBER}")
-                            trainImage.push("latest")
+                        def trainImage = sh(script: "/usr/local/bin/docker build -t ${DOCKER_USERNAME}/train-model:latest -f Dockerfile .", returnStdout: true).trim()
+                        withCredentials([usernamePassword(credentialsId: "DockerHubCred", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                            sh 'echo "$DOCKER_PASS" | /usr/local/bin/docker login -u "$DOCKER_USER" --password-stdin'
+                            sh "/usr/local/bin/docker push ${DOCKER_USERNAME}/train-model:latest"
+                            sh "/usr/local/bin/docker push ${DOCKER_USERNAME}/train-model:${env.BUILD_NUMBER}"
                         }
                     }
                 }
@@ -72,20 +73,26 @@ pipeline {
                 dir('healthcare_chatbot_backend') {
                     script {
                         // Copy necessary files to the backend directory
-                        sh 'cp ../chatpdf1.py .'
-                        sh 'cp ../data.pth .'
-                        sh 'cp ../ExtraTrees .'
-                        sh 'cp -r ../src .'
-                        sh 'cp -r ../templates .'
-                        sh 'cp -r ../static .'
-                        sh 'cp ../intents.json .'
-                        sh 'cp ../.env .'
-                        sh 'cp ../requirement.txt requirements.txt'
-                        sh 'cp -r ../data .'
+                        sh '''
+                            cp ../chatpdf1.py .
+                            cp ../data.pth .
+                            cp ../ExtraTrees .
+                            cp -r ../src .
+                            cp -r ../templates .
+                            cp -r ../static .
+                            cp ../intents.json .
+                            cp ../.env .
+                            cp ../requirement.txt requirements.txt || true
+                            cp -r ../data .
+                        '''
                         
-                        backendImage = docker.build("${DOCKER_USERNAME}/flask-app:backend-${env.BUILD_NUMBER}")
-                        backendImage.push()
-                        backendImage.push("latest")
+                        sh "/usr/local/bin/docker build -t ${DOCKER_USERNAME}/flask-app:backend-${env.BUILD_NUMBER} ."
+                        withCredentials([usernamePassword(credentialsId: "DockerHubCred", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                            sh 'echo "$DOCKER_PASS" | /usr/local/bin/docker login -u "$DOCKER_USER" --password-stdin'
+                            sh "/usr/local/bin/docker push ${DOCKER_USERNAME}/flask-app:backend-${env.BUILD_NUMBER}"
+                            sh "/usr/local/bin/docker tag ${DOCKER_USERNAME}/flask-app:backend-${env.BUILD_NUMBER} ${DOCKER_USERNAME}/flask-app:latest"
+                            sh "/usr/local/bin/docker push ${DOCKER_USERNAME}/flask-app:latest"
+                        }
                     }
                 }
             }
@@ -97,13 +104,13 @@ pipeline {
                     // For now, we'll just use the static files as a simple frontend
                     // Later this can be expanded to a full React app if needed
                     script {
-                        sh 'mkdir -p public'
-                        sh 'cp -r ../static/* public/'
-                        sh 'cp -r ../templates/* public/'
-
-                        // Create a simple package.json file
                         sh '''
-                        cat > package.json << 'EOF'
+                            mkdir -p public
+                            cp -r ../static/* public/ || true
+                            cp -r ../templates/* public/ || true
+
+                            # Create a simple package.json file
+                            cat > package.json << 'EOF'
 {
   "name": "healthcare-chatbot-frontend",
   "version": "1.0.0",
@@ -119,10 +126,12 @@ pipeline {
 EOF
                         '''
                         
-                        frontendImage = docker.build("${DOCKER_USERNAME}/react-app:frontend-${env.BUILD_NUMBER}")
-                        withDockerRegistry([credentialsId: "DockerHubCred", url: ""]) {
-                            frontendImage.push()
-                            frontendImage.push("latest")
+                        sh "/usr/local/bin/docker build -t ${DOCKER_USERNAME}/react-app:frontend-${env.BUILD_NUMBER} ."
+                        withCredentials([usernamePassword(credentialsId: "DockerHubCred", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                            sh 'echo "$DOCKER_PASS" | /usr/local/bin/docker login -u "$DOCKER_USER" --password-stdin'
+                            sh "/usr/local/bin/docker push ${DOCKER_USERNAME}/react-app:frontend-${env.BUILD_NUMBER}"
+                            sh "/usr/local/bin/docker tag ${DOCKER_USERNAME}/react-app:frontend-${env.BUILD_NUMBER} ${DOCKER_USERNAME}/react-app:latest"
+                            sh "/usr/local/bin/docker push ${DOCKER_USERNAME}/react-app:latest"
                         }
                     }
                 }
@@ -133,14 +142,7 @@ EOF
             steps {
                 script {
                     withEnv(["SUDO_PASSWORD=${SUDO_PASSWORD}"]) {
-                        ansiblePlaybook becomeUser: null, 
-                                        colorized: true, 
-                                        disableHostKeyChecking: true, 
-                                        installation: 'Ansible', 
-                                        inventory: './ansible-deploy/inventory', 
-                                        playbook: './ansible-deploy/ansible-book.yml', 
-                                        sudoUser: null,
-                                        extraVars: [ansible_become_pass: SUDO_PASSWORD]
+                        sh "/opt/homebrew/bin/ansible-playbook -i ./ansible-deploy/inventory ./ansible-deploy/ansible-book.yml --extra-vars \"ansible_become_pass=${SUDO_PASSWORD}\""
                     }
                 }
             }
