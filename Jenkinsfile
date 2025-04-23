@@ -57,11 +57,10 @@ pipeline {
                             fi
                         '''
                         
-                        def trainImage = sh(script: "/usr/local/bin/docker build -t ${DOCKER_USERNAME}/train-model:latest -f Dockerfile .", returnStdout: true).trim()
+                        sh "/usr/local/bin/docker build -t ${DOCKER_USERNAME}/train-model:latest -f Dockerfile ."
                         withCredentials([usernamePassword(credentialsId: "DockerHubCred", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                             sh 'echo "$DOCKER_PASS" | /usr/local/bin/docker login -u "$DOCKER_USER" --password-stdin'
                             sh "/usr/local/bin/docker push ${DOCKER_USERNAME}/train-model:latest"
-                            sh "/usr/local/bin/docker push ${DOCKER_USERNAME}/train-model:${env.BUILD_NUMBER}"
                         }
                     }
                 }
@@ -86,11 +85,9 @@ pipeline {
                             cp -r ../data .
                         '''
                         
-                        sh "/usr/local/bin/docker build -t ${DOCKER_USERNAME}/flask-app:backend-${env.BUILD_NUMBER} ."
+                        sh "/usr/local/bin/docker build -t ${DOCKER_USERNAME}/flask-app:latest ."
                         withCredentials([usernamePassword(credentialsId: "DockerHubCred", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                             sh 'echo "$DOCKER_PASS" | /usr/local/bin/docker login -u "$DOCKER_USER" --password-stdin'
-                            sh "/usr/local/bin/docker push ${DOCKER_USERNAME}/flask-app:backend-${env.BUILD_NUMBER}"
-                            sh "/usr/local/bin/docker tag ${DOCKER_USERNAME}/flask-app:backend-${env.BUILD_NUMBER} ${DOCKER_USERNAME}/flask-app:latest"
                             sh "/usr/local/bin/docker push ${DOCKER_USERNAME}/flask-app:latest"
                         }
                     }
@@ -126,11 +123,9 @@ pipeline {
 EOF
                         '''
                         
-                        sh "/usr/local/bin/docker build -t ${DOCKER_USERNAME}/react-app:frontend-${env.BUILD_NUMBER} ."
+                        sh "/usr/local/bin/docker build -t ${DOCKER_USERNAME}/react-app:latest ."
                         withCredentials([usernamePassword(credentialsId: "DockerHubCred", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                             sh 'echo "$DOCKER_PASS" | /usr/local/bin/docker login -u "$DOCKER_USER" --password-stdin'
-                            sh "/usr/local/bin/docker push ${DOCKER_USERNAME}/react-app:frontend-${env.BUILD_NUMBER}"
-                            sh "/usr/local/bin/docker tag ${DOCKER_USERNAME}/react-app:frontend-${env.BUILD_NUMBER} ${DOCKER_USERNAME}/react-app:latest"
                             sh "/usr/local/bin/docker push ${DOCKER_USERNAME}/react-app:latest"
                         }
                     }
