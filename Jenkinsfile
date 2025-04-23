@@ -17,7 +17,24 @@ pipeline {
 
         stage('Test Model') {
             steps {
-                sh 'python3 test_model.py'
+                sh '''
+                    # Install required packages
+                    pip3 install --user numpy scikit-learn pandas
+                    
+                    # Check where the model file is located
+                    echo "Current directory: $(pwd)"
+                    echo "Listing files:"
+                    ls -la
+                    
+                    # If the model is missing in the root, try to find it elsewhere
+                    if [ ! -f "ExtraTrees" ]; then
+                        echo "ExtraTrees not found in root, searching in other locations..."
+                        find . -name "ExtraTrees" | xargs -I{} cp {} ./
+                    fi
+                    
+                    # Run the test
+                    python3 test_model.py
+                '''
             }
         }
 
@@ -25,9 +42,20 @@ pipeline {
             steps {
                 script {
                     dir('training') {
-                        // Copy the training script and data
-                        sh 'cp ../train_extratrees.py train_model.py'
-                        sh 'cp -r ../data .'
+                        // First check if the model already exists to avoid unnecessary training
+                        sh '''
+                            if [ -f "../ExtraTrees" ]; then
+                                echo "ExtraTrees model already exists, skipping training"
+                                mkdir -p data
+                                cp -r ../data/* data/ || true
+                                cp ../train_extratrees.py train_model.py || true
+                            else
+                                echo "ExtraTrees model not found, will train a new model"
+                                # Copy the training script and data
+                                cp ../train_extratrees.py train_model.py || true
+                                cp -r ../data . || true
+                            fi
+                        '''
                         
                         def trainImage = docker.build("${DOCKER_USERNAME}/train-model:latest", '-f Dockerfile .')
                         withDockerRegistry([credentialsId: "DockerHubCred", url: ""]) {

@@ -1,12 +1,32 @@
 import pickle
 import numpy as np
+import os
+import sys
 
-# Try to load the model
-print("Loading the ExtraTrees model...")
-try:
-    with open('ExtraTrees', 'rb') as f:
-        model = pickle.load(f)
-    print("Model loaded successfully!")
+def main():
+    success = True
+    # Try to load the model, looking in multiple potential locations
+    model_paths = ['ExtraTrees', './ExtraTrees', '../ExtraTrees']
+    model = None
+    
+    print("Searching for ExtraTrees model...")
+    for path in model_paths:
+        if os.path.exists(path):
+            print(f"Found model at {path}")
+            try:
+                with open(path, 'rb') as f:
+                    model = pickle.load(f)
+                print("Model loaded successfully!")
+                break
+            except Exception as e:
+                print(f"Error loading model from {path}: {str(e)}")
+                success = False
+    
+    if model is None:
+        print("ERROR: Could not find or load the ExtraTrees model in any of the expected locations.")
+        print(f"Current directory: {os.getcwd()}")
+        print(f"Directory contents: {os.listdir('.')}")
+        return False
     
     # Create a sample feature vector (218 features with all zeros except first two set to 1)
     features = [0] * 218
@@ -44,9 +64,18 @@ try:
         print("\nTop 5 predictions:")
         for i in range(5):
             print(f"{i+1}. {top5_diseases[i]} - {top5_proba[i]:.2f}")
+        
+        return True
             
     except Exception as e:
         print(f"Error during prediction: {str(e)}")
-        
-except Exception as e:
-    print(f"Error loading model: {str(e)}") 
+        return False
+
+if __name__ == "__main__":
+    success = main()
+    if success:
+        print("Test completed successfully!")
+        sys.exit(0)
+    else:
+        print("Test failed!")
+        sys.exit(1) 
