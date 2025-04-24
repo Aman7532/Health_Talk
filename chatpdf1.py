@@ -74,8 +74,8 @@ model.eval()
 # Load the ExtraTrees model for disease prediction
 print("Loading ExtraTrees model...")
 try:
-    with open('ExtraTrees', 'rb') as f:
-        disease_model = pickle.load(f)
+with open('ExtraTrees', 'rb') as f:
+    disease_model = pickle.load(f)
     print("ExtraTrees model loaded successfully!")
 except Exception as e:
     print(f"Error loading ExtraTrees model: {e}")
@@ -237,13 +237,13 @@ def get_response():
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
-        # Get the data from the POST request
+    # Get the data from the POST request
         print("Received predict request")
         print("Request content type:", request.content_type)
         print("Request data:", request.data)
         
         try:
-            data = request.get_json(force=True)
+    data = request.get_json(force=True)
             print("Parsed JSON data:", data)
         except Exception as e:
             print(f"Error parsing JSON: {str(e)}")
@@ -252,63 +252,63 @@ def predict():
         if not isinstance(data, list):
             print("Data is not a list")
             return jsonify({"error": "Data must be a list of symptoms"}), 400
-            
-        # Create a list of zeros
-        features = [0] * 218
 
-        # Set the corresponding indices to 1 for the symptoms present in the data
-        for symptom in data:
-            if symptom in symptoms:
-                index = symptoms.index(symptom)
-                features[index] = 1
+    # Create a list of zeros
+    features = [0] * 218
+
+    # Set the corresponding indices to 1 for the symptoms present in the data
+    for symptom in data:
+        if symptom in symptoms:
+            index = symptoms.index(symptom)
+            features[index] = 1
             else:
                 print(f"Warning: Unknown symptom '{symptom}'")
 
-        # Make prediction using the model
+    # Make prediction using the model
         if disease_model is None:
             print("Error: disease_model is None")
             return jsonify({"error": "Disease prediction model is not available. Please contact the administrator."})
         
         print("Making prediction...")
-        proba = disease_model.predict_proba([features])
+    proba = disease_model.predict_proba([features])
         print("Prediction successful!")
 
-        # Get the indices and probabilities of the top 5 classes
-        top5_idx = np.argsort(proba[0])[-5:][::-1]
-        top5_proba = np.sort(proba[0])[-5:][::-1]
+    # Get the indices and probabilities of the top 5 classes
+    top5_idx = np.argsort(proba[0])[-5:][::-1]
+    top5_proba = np.sort(proba[0])[-5:][::-1]
 
-        # Get the names of the top 5 diseases
-        top5_diseases = [diseases[i] for i in top5_idx]
+    # Get the names of the top 5 diseases
+    top5_diseases = [diseases[i] for i in top5_idx]
 
-        # Prepare the response
-        response = []
-        for i in range(5):
-            disease = top5_diseases[i]
-            probability = top5_proba[i]
+    # Prepare the response
+    response = []
+    for i in range(5):
+        disease = top5_diseases[i]
+        probability = top5_proba[i]
 
-            # Get the disease description
-            disp = desc[desc['Disease'] == disease].values[0][1] if disease in desc["Disease"].unique() else "No description available"
+        # Get the disease description
+        disp = desc[desc['Disease'] == disease].values[0][1] if disease in desc["Disease"].unique() else "No description available"
 
-            # Get the precautions
-            precautions = []
-            if disease in prec["Disease"].unique():
-                c = np.where(prec['Disease'] == disease)[0][0]
-                for j in range(1, len(prec.iloc[c])):
-                    precaution = prec.iloc[c, j]
-                    if not pd.isna(precaution) and precaution != '':
-                        precautions.append(precaution)
+        # Get the precautions
+        precautions = []
+        if disease in prec["Disease"].unique():
+            c = np.where(prec['Disease'] == disease)[0][0]
+            for j in range(1, len(prec.iloc[c])):
+                precaution = prec.iloc[c, j]
+                if not pd.isna(precaution) and precaution != '':
+                    precautions.append(precaution)
 
-            # Add the disease prediction to the response
-            response.append({
-                'disease': disease,
-                'probability': float(probability),
-                'description': disp,
-                'precautions': precautions
-            })
+        # Add the disease prediction to the response
+        response.append({
+            'disease': disease,
+            'probability': float(probability),
+            'description': disp,
+            'precautions': precautions
+        })
 
-        # Send back to the client
+    # Send back to the client
         print("Sending response:", response)
-        return jsonify(response)
+    return jsonify(response)
     except Exception as e:
         import traceback
         traceback.print_exc()

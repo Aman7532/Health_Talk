@@ -10,3 +10,5 @@ torch
 nltk
 pandas
 numpy
+langchain_community==0.0.7
+langchain_text_splitters

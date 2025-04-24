@@ -148,42 +148,42 @@
                 })
                 .then(response => {
                     console.log("Response received:", response);
-                    $("#result").empty();
-                    let foundHighProbabilityDisease = false;
+                        $("#result").empty();
+                        let foundHighProbabilityDisease = false;
 
-                    response.forEach(function(item) {
-                        if (item.probability > 0.01) {
-                            foundHighProbabilityDisease = true;
+                        response.forEach(function(item) {
+                            if (item.probability > 0.01) {
+                                foundHighProbabilityDisease = true;
+                                $("#result").append(`
+                                <div class="disease-info" style="border: 2px solid #ccc; border-radius: 5px; padding: 10px; margin-bottom: 20px;">
+                                <p style="font-size: 18px; margin-bottom: 5px;">
+                                    <span style="font-weight: bold;">Disease Name:</span>
+                                    <span style="font-size: 16px;">${item.disease}</span>
+                                </p>
+                                <p style="font-size: 18px; margin-bottom: 5px;">
+                                    <span style="font-weight: bold;">Probability:</span>
+                                    <span style="font-size: 16px;">${item.probability}</span>
+                                </p>
+                                <p style="font-size: 18px; margin-bottom: 5px;">
+                                    <span style="font-weight: bold;">Description:</span>
+                                    <span style="font-size: 16px;">${item.description}</span>
+                                </p>
+                                <p style="font-size: 18px; margin-bottom: 5px;">
+                                    <span style="font-weight: bold;">Precautions:</span>
+                                    <ul style="margin: 0; padding-left: 20px;">
+                                        ${item.precautions.map(precaution => `<li style="font-size: 16px; margin-bottom: 5px;">${precaution}</li>`).join('')}
+                                    </ul>
+                                </p>
+                            </div>
+                            `);
+                            }
+                        });
+
+                        if (!foundHighProbabilityDisease) {
                             $("#result").append(`
-                            <div class="disease-info" style="border: 2px solid #ccc; border-radius: 5px; padding: 10px; margin-bottom: 20px;">
-                            <p style="font-size: 18px; margin-bottom: 5px;">
-                                <span style="font-weight: bold;">Disease Name:</span>
-                                <span style="font-size: 16px;">${item.disease}</span>
-                            </p>
-                            <p style="font-size: 18px; margin-bottom: 5px;">
-                                <span style="font-weight: bold;">Probability:</span>
-                                <span style="font-size: 16px;">${item.probability}</span>
-                            </p>
-                            <p style="font-size: 18px; margin-bottom: 5px;">
-                                <span style="font-weight: bold;">Description:</span>
-                                <span style="font-size: 16px;">${item.description}</span>
-                            </p>
-                            <p style="font-size: 18px; margin-bottom: 5px;">
-                                <span style="font-weight: bold;">Precautions:</span>
-                                <ul style="margin: 0; padding-left: 20px;">
-                                    ${item.precautions.map(precaution => `<li style="font-size: 16px; margin-bottom: 5px;">${precaution}</li>`).join('')}
-                                </ul>
-                            </p>
-                        </div>
-                        `);
-                        }
-                    });
-
-                    if (!foundHighProbabilityDisease) {
-                        $("#result").append(`
                 <p>No disease prediction found with a probability greater than 0.01.</p>
-                <p>Please provide additional symptoms for a more accurate prediction.</p>
-                `);
+                    <p>Please provide additional symptoms for a more accurate prediction.</p>
+                    `);
                     }
                 })
                 .catch(error => {

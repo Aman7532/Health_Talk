@@ -57,10 +57,10 @@
             })
             .then(data => {
                 console.log("Response received:", data);
-                $("#result").empty();
+                    $("#result").empty();
                 data.forEach(function(item) {
-                    $("#result").append("<p><strong>Disease:</strong> " + item.disease + "<br><strong>Probability:</strong> " + item.probability + "<br><strong>Description:</strong> " + item.description + "<br><strong>Precautions:</strong> " + item.precautions.join(", ") + "</p>");
-                });
+                        $("#result").append("<p><strong>Disease:</strong> " + item.disease + "<br><strong>Probability:</strong> " + item.probability + "<br><strong>Description:</strong> " + item.description + "<br><strong>Precautions:</strong> " + item.precautions.join(", ") + "</p>");
+                    });
             })
             .catch(error => {
                 console.error("Fetch Error:", error);
