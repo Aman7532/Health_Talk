@@ -36,10 +36,23 @@ pipeline {
                         # Activate virtual environment and install dependencies
                         . ${VENV_NAME}/bin/activate
                         pip install --upgrade pip
-                        pip install -r requirements.txt
+                        
+                        # Check if requirements.txt exists and install dependencies
+                        if [ -f "requirements.txt" ]; then
+                            echo "Installing dependencies from requirements.txt"
+                            pip install -r requirements.txt
+                        else
+                            echo "No requirements.txt found, installing essential packages"
+                            pip install flask requests elasticsearch python-dotenv numpy pandas scikit-learn nltk pytest gunicorn
+                        fi
                         
                         # Run any tests if available
-                        # pytest -v || echo "No tests found or tests failed"
+                        if [ -d "tests" ] || [ -f "test_*.py" ]; then
+                            echo "Running tests"
+                            pytest -v || echo "Tests failed but continuing"
+                        else
+                            echo "No tests found"
+                        fi
                         
                         # Deactivate virtual environment
                         deactivate
