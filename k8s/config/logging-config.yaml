@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: python-logging-config
+  namespace: healthcare-chatbot
+data:
+  logging.conf: |
+    [loggers]
+    keys=root,healthcarebot
+
+    [handlers]
+    keys=consoleHandler,logstashHandler
+
+    [formatters]
+    keys=simpleFormatter,jsonFormatter
+
+    [logger_root]
+    level=INFO
+    handlers=consoleHandler
+
+    [logger_healthcarebot]
+    level=INFO
+    handlers=consoleHandler,logstashHandler
+    qualname=healthcarebot
+    propagate=0
+
+    [handler_consoleHandler]
+    class=StreamHandler
+    level=INFO
+    formatter=simpleFormatter
+    args=(sys.stdout,)
+
+    [handler_logstashHandler]
+    class=logstash_async.handler.AsynchronousLogstashHandler
+    level=INFO
+    formatter=jsonFormatter
+    args=('logstash-service', 5044, '', 1, True, 5)
+
+    [formatter_simpleFormatter]
+    format=%(asctime)s - %(name)s - %(levelname)s - %(message)s
+    datefmt=
+
+    [formatter_jsonFormatter]
+    class=pythonjsonlogger.jsonlogger.JsonFormatter
+    format=%(asctime)s %(name)s %(levelname)s %(message)s

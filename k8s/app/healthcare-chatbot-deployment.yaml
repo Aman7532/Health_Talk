@@ -1,0 +1,157 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: healthcare-chatbot
+  namespace: healthcare-chatbot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: healthcare-chatbot
+  template:
+    metadata:
+      labels:
+        app: healthcare-chatbot
+    spec:
+      initContainers:
+      - name: setup-data
+        image: busybox
+        command: ["sh", "-c", "mkdir -p /app/data && cp /configmaps/* /app/data/ && chmod -R 777 /app/data"]
+        volumeMounts:
+        - name: configmaps
+          mountPath: /configmaps
+        - name: shared-data
+          mountPath: /app
+      containers:
+      - name: healthcare-chatbot
+        image: docker.io/aman7532/healthcare-chatbot:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3000
+        env:
+        - name: GOOGLE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: google-api-key
+        - name: LOGSTASH_HOST
+          value: "logstash-service"
+        - name: LOGSTASH_PORT
+          value: "5044"
+        resources:
+          requests:
+            memory: "768Mi"
+            cpu: "200m"
+          limits:
+            memory: "2Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /test
+            port: 3000
+          initialDelaySeconds: 60
+          timeoutSeconds: 5
+          periodSeconds: 30
+          failureThreshold: 5
+        readinessProbe:
+          httpGet:
+            path: /test
+            port: 3000
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+          periodSeconds: 20
+          failureThreshold: 3
+        volumeMounts:
+        - name: model-volume
+          mountPath: /app/models
+        - name: shared-data
+          mountPath: /app/data
+          subPath: data
+        - name: env-config
+          mountPath: /app/.env
+          subPath: .env
+      volumes:
+      - name: model-volume
+        emptyDir: {}
+      - name: shared-data
+        emptyDir: {}
+      - name: env-config
+        configMap:
+          name: env-config
+      - name: configmaps
+        projected:
+          sources:
+          - configMap:
+              name: symptom-description
+              items:
+              - key: symptom_Description.csv
+                path: symptom_Description.csv
+          - configMap:
+              name: symptom-precaution
+              items:
+              - key: symptom_precaution.csv
+                path: symptom_precaution.csv
+          - configMap:
+              name: symptom-severity
+              items:
+              - key: Symptom_severity.csv
+                path: Symptom_severity.csv
+          - configMap:
+              name: diseases
+              items:
+              - key: diseases.txt
+                path: diseases.txt
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: healthcare-chatbot-service
+  namespace: healthcare-chatbot
+spec:
+  selector:
+    app: healthcare-chatbot
+  ports:
+  - port: 80
+    targetPort: 3000
+    nodePort: 30000
+  type: NodePort
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: healthcare-chatbot-hpa
+  namespace: healthcare-chatbot
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: healthcare-chatbot
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 25
+        periodSeconds: 60

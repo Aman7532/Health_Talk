@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: env-config
+  namespace: healthcare-chatbot
+data:
+  .env: |
+    GOOGLE_API_KEY=AIzaSyBmspDxrTg51U-kRKRCXEmVv5n3Bki8HXw
+    GOOGLE_GENERATIVE_AI_API_KEY=AIzaSyBmspDxrTg51U-kRKRCXEmVv5n3Bki8HXw
+    GOOGLE_API_KEY_BASE64=QUl6YVN5Qm1zcER4clRnNTFVLWtSS1JDWEVtVnY1bjNCa2k4SFh3

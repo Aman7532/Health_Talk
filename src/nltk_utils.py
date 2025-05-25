@@ -9,7 +9,8 @@ def tokenize(sentence):
     split sentence into array of words/tokens
     a token can be a word or punctuation character, or number
     """
-    return nltk.word_tokenize(sentence)
+    # Use a simpler tokenization method that doesn't require punkt_tab
+    return sentence.lower().split()
 
 
 def stem(word):

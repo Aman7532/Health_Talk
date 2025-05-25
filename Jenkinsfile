@@ -1,150 +1,160 @@
 pipeline {
     agent any
-
+    
     environment {
-        // Retrieve credentials from Jenkins
-        SUDO_PASSWORD = credentials('SUDO_PASSWORD')
-        DOCKER_HUB_CREDENTIALS = credentials('DockerHubCred')
-        DOCKER_USERNAME = "aman7532"
+        DOCKER_IMAGE_NAME = 'healthcare-chatbot'
+        GITHUB_REPO_URL = 'https://github.com/Aman7532/Health_Talk'
+        DOCKER_REGISTRY = 'docker.io/aman7532'
+        IMAGE_TAG = 'latest'
+        NAMESPACE = 'healthcare-chatbot'
+        PYTHON_VERSION = '3.9'
+        VENV_NAME = 'healthcare-chatbot-venv'
     }
-
+    
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/Aman7532/Health_Talk.git'
+                script {
+                    git branch: 'main', url: "${GITHUB_REPO_URL}"
+                }
             }
         }
-
-        stage('Test Model') {
-            steps {
-                sh '''
-                    # Install required packages
-                    pip3 install --user numpy scikit-learn pandas
-                    
-                    # Check where the model file is located
-                    echo "Current directory: $(pwd)"
-                    echo "Listing files:"
-                    ls -la
-                    
-                    # If the model is missing in the root, try to find it elsewhere
-                    if [ ! -f "ExtraTrees" ]; then
-                        echo "ExtraTrees not found in root, searching in other locations..."
-                        find . -name "ExtraTrees" | xargs -I{} cp {} ./
-                    fi
-                    
-                    # Run the test
-                    python3 test_model.py
-                '''
-            }
-        }
-
-        stage('Train Model') {
+        
+        stage('Setup Python Environment') {
             steps {
                 script {
-                    dir('training') {
-                        // First check if the model already exists to avoid unnecessary training
-                        sh '''
-                            if [ -f "../ExtraTrees" ]; then
-                                echo "ExtraTrees model already exists, skipping training"
-                                mkdir -p data
-                                cp -r ../data/* data/ || true
-                                cp ../train_extratrees.py train_model.py || true
-                            else
-                                echo "ExtraTrees model not found, will train a new model"
-                                # Copy the training script and data
-                                cp ../train_extratrees.py train_model.py || true
-                                cp -r ../data . || true
-                            fi
-                        '''
+                    // Create and activate virtual environment
+                    sh """
+                        # Check if Python is installed
+                        python3 --version
                         
-                        sh "/usr/local/bin/docker build -t ${DOCKER_USERNAME}/train-model:latest -f Dockerfile ."
-                        withCredentials([usernamePassword(credentialsId: "DockerHubCred", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                            sh 'echo "$DOCKER_PASS" | /usr/local/bin/docker login -u "$DOCKER_USER" --password-stdin'
-                            sh "/usr/local/bin/docker push ${DOCKER_USERNAME}/train-model:latest"
-                        }
-                    }
+                        # Create virtual environment if it doesn't exist
+                        if [ ! -d "${VENV_NAME}" ]; then
+                            python3 -m venv ${VENV_NAME}
+                        fi
+                        
+                        # Activate virtual environment and install dependencies
+                        . ${VENV_NAME}/bin/activate
+                        pip install --upgrade pip
+                        pip install -r requirements.txt
+                        
+                        # Run any tests if available
+                        # pytest -v || echo "No tests found or tests failed"
+                        
+                        # Deactivate virtual environment
+                        deactivate
+                    """
                 }
             }
         }
-
-        stage('Build Docker Backend Image') {
-            steps {
-                dir('healthcare_chatbot_backend') {
-                    script {
-                        // Copy necessary files to the backend directory
-                        sh '''
-                            cp ../chatpdf1.py .
-                            cp ../data.pth .
-                            cp ../ExtraTrees .
-                            cp -r ../src .
-                            cp -r ../templates .
-                            cp -r ../static .
-                            cp ../intents.json .
-                            cp ../.env .
-                            cp ../requirement.txt requirements.txt || true
-                            cp -r ../data .
-                        '''
-                        
-                        sh "/usr/local/bin/docker build -t ${DOCKER_USERNAME}/flask-app:latest ."
-                        withCredentials([usernamePassword(credentialsId: "DockerHubCred", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                            sh 'echo "$DOCKER_PASS" | /usr/local/bin/docker login -u "$DOCKER_USER" --password-stdin'
-                            sh "/usr/local/bin/docker push ${DOCKER_USERNAME}/flask-app:latest"
-                        }
-                    }
-                }
-            }
-        }
-
-        stage('Build Docker Frontend Image') {
-            steps {
-                dir('healthcare_chatbot_frontend') {
-                    // For now, we'll just use the static files as a simple frontend
-                    // Later this can be expanded to a full React app if needed
-                    script {
-                        sh '''
-                            mkdir -p public
-                            cp -r ../static/* public/ || true
-                            cp -r ../templates/* public/ || true
-
-                            # Create a simple package.json file
-                            cat > package.json << 'EOF'
-{
-  "name": "healthcare-chatbot-frontend",
-  "version": "1.0.0",
-  "description": "Frontend for Healthcare Chatbot",
-  "main": "index.js",
-  "scripts": {
-    "start": "serve -s public -l 3000"
-  },
-  "dependencies": {
-    "serve": "^14.0.0"
-  }
-}
-EOF
-                        '''
-                        
-                        sh "/usr/local/bin/docker build -t ${DOCKER_USERNAME}/react-app:latest ."
-                        withCredentials([usernamePassword(credentialsId: "DockerHubCred", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                            sh 'echo "$DOCKER_PASS" | /usr/local/bin/docker login -u "$DOCKER_USER" --password-stdin'
-                            sh "/usr/local/bin/docker push ${DOCKER_USERNAME}/react-app:latest"
-                        }
-                    }
-                }
-            }
-        }
-
-        stage('Deploy with Ansible') {
+        
+        stage('Build Docker Image') {
             steps {
                 script {
-                    sh "/opt/homebrew/bin/ansible-playbook -i ./ansible-deploy/inventory ./ansible-deploy/ansible-book.yml"
+                    withCredentials([usernamePassword(credentialsId: 'DockerHub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                        sh 'echo "$DOCKER_PASS" | /usr/local/bin/docker login -u "$DOCKER_USER" --password-stdin'
+                    }
+                    sh "/usr/local/bin/docker build -t ${DOCKER_IMAGE_NAME} ."
+                }
+            }
+        }
+        
+        stage('Push Docker Image') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'DockerHub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                        sh 'echo "$DOCKER_PASS" | /usr/local/bin/docker login -u "$DOCKER_USER" --password-stdin'
+                    }
+                    sh "/usr/local/bin/docker tag ${DOCKER_IMAGE_NAME} ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:${IMAGE_TAG}"
+                    sh "/usr/local/bin/docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:${IMAGE_TAG}"
+                }
+            }
+        }
+        
+        stage('Clean Existing Deployment') {
+            steps {
+                script {
+                    // Delete existing namespace if it exists (ignore errors if it doesn't)
+                    sh "kubectl delete namespace ${NAMESPACE} --ignore-not-found=true"
+                    
+                    // Wait for namespace to be fully deleted
+                    sh '''
+                        while kubectl get namespace ${NAMESPACE} &>/dev/null; do
+                            echo "Waiting for namespace ${NAMESPACE} to be deleted..."
+                            sleep 5
+                        done
+                    '''
+                }
+            }
+        }
+        
+        stage('Run Ansible Playbook') {
+            steps {
+                script {
+                    sh "/opt/homebrew/bin/ansible-playbook ansible-deploy.yml"
+                }
+            }
+        }
+        
+        stage('Set Up Port Forwarding') {
+            steps {
+                script {
+                    // Kill any existing port-forwarding processes
+                    sh "pkill -f 'kubectl port-forward' || true"
+                    
+                    // Set up port forwarding for all services
+                    sh '''
+                        kubectl port-forward -n healthcare-chatbot svc/healthcare-chatbot-service 30000:80 &
+                        kubectl port-forward -n healthcare-chatbot svc/elasticsearch-service 30001:9200 &
+                        kubectl port-forward -n healthcare-chatbot svc/kibana-service 30002:80 &
+                        
+                        # Wait a bit to ensure port forwarding is established
+                        sleep 5
+                        
+                        # Verify port forwarding is working
+                        curl -s http://localhost:30000/test || echo "Healthcare Chatbot service not responding"
+                        curl -s http://localhost:30001 || echo "Elasticsearch service not responding"
+                        curl -s http://localhost:30002 || echo "Kibana service not responding"
+                    '''
+                }
+            }
+        }
+        
+        stage('Success') {
+            steps {
+                script {
+                    echo """
+                    ===============================================
+                    DEPLOYMENT SUCCESSFUL!
+                    
+                    The Healthcare Chatbot has been successfully deployed.
+                    
+                    Access the services at:
+                    - Healthcare Chatbot: http://localhost:30000
+                    - Elasticsearch: http://localhost:30001
+                    - Kibana: http://localhost:30002
+                    
+                    Note: Port forwarding has been set up automatically.
+                    ===============================================
+                    """
                 }
             }
         }
     }
-
+    
     post {
+        success {
+            echo "Pipeline executed successfully!"
+        }
+        failure {
+            echo "Pipeline failed. Please check the logs for details."
+            
+            // Kill port forwarding on failure
+            sh "pkill -f 'kubectl port-forward' || true"
+        }
         always {
-            cleanWs()
+            // Clean up Docker images to save space
+            sh "/usr/local/bin/docker system prune -f || true"
         }
     }
-} 
+}

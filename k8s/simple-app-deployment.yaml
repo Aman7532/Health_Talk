@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-data
+  namespace: healthcare-chatbot
+data:
+  # This ConfigMap will contain the data files needed by the application
+  # We'll populate it with the necessary files during deployment
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: healthcare-chatbot
+  namespace: healthcare-chatbot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: healthcare-chatbot
+  template:
+    metadata:
+      labels:
+        app: healthcare-chatbot
+    spec:
+      containers:
+      - name: healthcare-chatbot
+        image: docker.io/aman7532/healthcare-chatbot:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3000
+        env:
+        - name: GOOGLE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: google-api-key
+              key: api-key
+        - name: ELASTICSEARCH_HOST
+          value: "http://elasticsearch-service:9200"
+        - name: ENVIRONMENT
+          value: "production"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: OMP_NUM_THREADS
+          value: "1"
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+          requests:
+            cpu: 500m
+            memory: 512Mi
+        volumeMounts:
+        - name: app-data-files
+          mountPath: /app/data
+      volumes:
+      - name: app-data-files
+        configMap:
+          name: app-data-files
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: healthcare-chatbot-service
+  namespace: healthcare-chatbot
+spec:
+  selector:
+    app: healthcare-chatbot
+  ports:
+  - port: 80
+    targetPort: 3000
+    nodePort: 30003
+  type: NodePort

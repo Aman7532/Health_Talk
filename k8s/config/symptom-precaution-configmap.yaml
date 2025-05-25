@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: symptom-precaution
+  namespace: healthcare-chatbot
+data:
+  symptom_precaution.csv: |
+    Disease,Precaution_1,Precaution_2,Precaution_3,Precaution_4
+    Fungal infection,bath twice,use detol or neem in bathing water,keep infected area dry,use clean cloths
+    Allergy,apply calamine,cover area with bandage,use ice to compress itching,use antihistamine
+    GERD,avoid fatty spicy food,avoid lying down after eating,maintain healthy weight,exercise
+    Chronic cholestasis,cold baths,eat healthy,medication,rest
+    Drug Reaction,stop irritation,consult nearest hospital,stop taking drug,follow up
+    Peptic ulcer disease,avoid fatty spicy food,consume probiotic food,eliminate milk,limit alcohol
+    AIDS,avoid open cuts,wear ppe if possible,consult doctor,follow up
+    Diabetes,have balanced diet,exercise,medication,follow up
+    Gastroenteritis,stop eating solid food for while,try taking small sips of water,rest,ease back into eating
+    Bronchial Asthma,switch to loose cloothing,take deep breaths,get away from trigger,seek help

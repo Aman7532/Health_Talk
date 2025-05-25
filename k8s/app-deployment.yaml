@@ -1,0 +1,171 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-data
+  namespace: healthcare-chatbot
+data:
+  # This ConfigMap will contain the data files needed by the application
+  # We'll populate it with the necessary files during deployment
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: app-data-pv
+  namespace: healthcare-chatbot
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /data/app-data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: app-data-pvc
+  namespace: healthcare-chatbot
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logging-config
+  namespace: healthcare-chatbot
+data:
+  logging.conf: |
+    [loggers]
+    keys=root,healthcare_chatbot
+
+    [handlers]
+    keys=consoleHandler,logstashHandler
+
+    [formatters]
+    keys=simpleFormatter,jsonFormatter
+
+    [logger_root]
+    level=INFO
+    handlers=consoleHandler,logstashHandler
+
+    [logger_healthcare_chatbot]
+    level=INFO
+    handlers=consoleHandler,logstashHandler
+    qualname=healthcare_chatbot
+    propagate=0
+
+    [handler_consoleHandler]
+    class=StreamHandler
+    level=INFO
+    formatter=simpleFormatter
+    args=(sys.stdout,)
+
+    [handler_logstashHandler]
+    class=healthcare_chatbot.LogstashHandler
+    level=INFO
+    formatter=jsonFormatter
+    args=('logstash-service', 9600)
+
+    [formatter_simpleFormatter]
+    format=%(asctime)s - %(name)s - %(levelname)s - %(message)s
+
+    [formatter_jsonFormatter]
+    format={"timestamp": "%(asctime)s", "name": "%(name)s", "level": "%(levelname)s", "message": "%(message)s"}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: healthcare-chatbot
+  namespace: healthcare-chatbot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: healthcare-chatbot
+  template:
+    metadata:
+      labels:
+        app: healthcare-chatbot
+    spec:
+      initContainers:
+      - name: init-data
+        image: busybox
+        command: ["sh", "-c", "mkdir -p /data/app && chmod -R 777 /data/app"]
+        volumeMounts:
+        - name: app-data-volume
+          mountPath: /data/app
+      containers:
+      - name: healthcare-chatbot
+        image: docker.io/aman7532/healthcare-chatbot:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3000
+        env:
+        - name: GOOGLE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: google-api-key
+              key: api-key
+        - name: ELASTICSEARCH_HOST
+          value: "http://elasticsearch-service:9200"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: OMP_NUM_THREADS
+          value: "1"
+        - name: ENVIRONMENT
+          value: "production"
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 2Gi
+          requests:
+            cpu: 500m
+            memory: 1Gi
+        volumeMounts:
+        - name: app-data-volume
+          mountPath: /app/models
+        - name: logging-config-volume
+          mountPath: /app/logging.conf
+          subPath: logging.conf
+        - name: app-data-files
+          mountPath: /app/data
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 60
+          periodSeconds: 20
+      volumes:
+      - name: app-data-volume
+        persistentVolumeClaim:
+          claimName: app-data-pvc
+      - name: logging-config-volume
+        configMap:
+          name: logging-config
+      - name: app-data-files
+        configMap:
+          name: app-data-files
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: healthcare-chatbot-service
+  namespace: healthcare-chatbot
+spec:
+  selector:
+    app: healthcare-chatbot
+  ports:
+  - port: 80
+    targetPort: 3000
+    nodePort: 30003
+  type: NodePort

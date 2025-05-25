@@ -1,0 +1,11 @@
+FROM docker.io/aman7532/healthcare-chatbot:latest
+
+# Install additional dependencies
+RUN pip install python-dotenv
+
+# Create a wrapper script to set the API key
+COPY api_key_wrapper.sh /app/api_key_wrapper.sh
+RUN chmod +x /app/api_key_wrapper.sh
+
+# Set the wrapper script as the entrypoint
+ENTRYPOINT ["/app/api_key_wrapper.sh"]

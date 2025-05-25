@@ -1,0 +1,143 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logstash-config
+  namespace: healthcare-chatbot
+data:
+  logstash.yml: |
+    http.host: "0.0.0.0"
+    xpack.monitoring.elasticsearch.hosts: [ "http://elasticsearch-service:9200" ]
+  logstash.conf: |
+    input {
+      beats {
+        port => 5044
+      }
+      tcp {
+        port => 5044
+        codec => json
+      }
+      http {
+        port => 9600
+        codec => json
+      }
+    }
+
+    filter {
+      if [type] == "python" {
+        grok {
+          match => { "message" => "%{TIMESTAMP_ISO8601:timestamp} %{LOGLEVEL:level} %{GREEDYDATA:message}" }
+        }
+        date {
+          match => [ "timestamp", "ISO8601" ]
+        }
+      }
+      
+      # Handle Kubernetes container logs from Filebeat
+      if [kubernetes] {
+        if [kubernetes][container][name] == "healthcare-chatbot" {
+          mutate {
+            add_field => { "app" => "healthcare-chatbot" }
+          }
+          
+          # Try to parse JSON logs if available
+          json {
+            source => "message"
+            target => "log_data"
+            skip_on_invalid_json => true
+          }
+          
+          # Extract log level if available
+          grok {
+            match => { "message" => "%{LOGLEVEL:log_level}" }
+            tag_on_failure => ["_grokparsefailure_loglevel"]
+          }
+          
+          # Add endpoint info if available in the message
+          grok {
+            match => { "message" => ".*(GET|POST|PUT|DELETE) (?<endpoint>/[^ ]*) HTTP.*" }
+            tag_on_failure => ["_grokparsefailure_endpoint"]
+          }
+        }
+      }
+    }
+
+    output {
+      elasticsearch {
+        hosts => ["elasticsearch-service:9200"]
+        index => "healthcare-chatbot-%{+YYYY.MM.dd}"
+      }
+      stdout { codec => rubydebug }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logstash
+  namespace: healthcare-chatbot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: logstash
+  template:
+    metadata:
+      labels:
+        app: logstash
+    spec:
+      containers:
+      - name: logstash
+        image: docker.elastic.co/logstash/logstash:7.14.0
+        ports:
+        - containerPort: 5044
+          name: logstash
+        - containerPort: 9600
+          name: http
+        resources:
+          limits:
+            cpu: 500m
+            memory: 1Gi
+          requests:
+            cpu: 200m
+            memory: 512Mi
+        env:
+        - name: LS_JAVA_OPTS
+          value: "-Xmx512m -Xms256m"
+        volumeMounts:
+        - name: config-volume
+          mountPath: /usr/share/logstash/config/logstash.yml
+          subPath: logstash.yml
+        - name: pipeline-volume
+          mountPath: /usr/share/logstash/pipeline/logstash.conf
+          subPath: logstash.conf
+      volumes:
+      - name: config-volume
+        configMap:
+          name: logstash-config
+          items:
+          - key: logstash.yml
+            path: logstash.yml
+      - name: pipeline-volume
+        configMap:
+          name: logstash-config
+          items:
+          - key: logstash.conf
+            path: logstash.conf
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: logstash-service
+  namespace: healthcare-chatbot
+spec:
+  selector:
+    app: logstash
+  ports:
+  - port: 5044
+    targetPort: 5044
+    protocol: TCP
+    name: tcp
+  - port: 9600
+    targetPort: 9600
+    protocol: TCP
+    name: http
+  type: ClusterIP

@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: disease-description
+  namespace: healthcare-chatbot
+data:
+  symptom_Description.csv: |
+    Disease,Description
+    Fungal infection,"A fungal infection is caused by fungi that can affect the skin, nails, hair, or mucous membranes. Common symptoms include itching, redness, and sometimes a rash."
+    Allergy,"An allergy is an immune system response to a foreign substance that's not typically harmful to your body. Common symptoms include sneezing, itching, and rashes."
+    GERD,"Gastroesophageal reflux disease (GERD) is a chronic digestive disease that occurs when stomach acid flows back into the esophagus, irritating the lining. Symptoms include heartburn and acid regurgitation."
+    Chronic cholestasis,"Chronic cholestasis is a condition where bile flow from the liver is reduced or blocked, leading to symptoms like jaundice, itching, and fatigue."
+    Drug Reaction,"A drug reaction is an adverse response to a medication. Symptoms can range from mild rashes to severe skin reactions, fever, and organ damage."
+    Peptic ulcer disease,"Peptic ulcer disease involves open sores that develop on the inside lining of the stomach, upper small intestine, or esophagus. The most common symptom is abdominal pain."
+    AIDS,"Acquired immunodeficiency syndrome (AIDS) is a chronic, potentially life-threatening condition caused by the human immunodeficiency virus (HIV). It damages the immune system and interferes with the body's ability to fight infection."
+    Diabetes,"Diabetes is a group of diseases that result in too much sugar in the blood. Symptoms include increased thirst, frequent urination, hunger, fatigue, and blurred vision."
+    Gastroenteritis,"Gastroenteritis is an inflammation of the lining of the intestines caused by a virus, bacteria, or parasites. Symptoms include diarrhea, nausea, vomiting, and abdominal cramps."
+    Bronchial Asthma,"Bronchial asthma is a chronic inflammatory disease of the airways characterized by variable and recurring symptoms, reversible airflow obstruction, and bronchospasm. Symptoms include wheezing, coughing, chest tightness, and shortness of breath."

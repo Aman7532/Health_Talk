@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kibana
+  namespace: healthcare-chatbot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kibana
+  template:
+    metadata:
+      labels:
+        app: kibana
+    spec:
+      containers:
+      - name: kibana
+        image: docker.elastic.co/kibana/kibana:7.14.0
+        ports:
+        - containerPort: 5601
+        env:
+        - name: ELASTICSEARCH_URL
+          value: http://elasticsearch-service:9200
+        - name: ELASTICSEARCH_HOSTS
+          value: http://elasticsearch-service:9200
+        resources:
+          limits:
+            cpu: 500m
+            memory: 1Gi
+          requests:
+            cpu: 200m
+            memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kibana-service
+  namespace: healthcare-chatbot
+spec:
+  selector:
+    app: kibana
+  ports:
+  - port: 80
+    targetPort: 5601
+    nodePort: 30002
+  type: NodePort
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kibana-setup
+  namespace: healthcare-chatbot
+spec:
+  template:
+    spec:
+      containers:
+      - name: kibana-setup
+        image: curlimages/curl:7.83.1
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          # Wait for Kibana to be ready
+          echo "Waiting for Kibana to be ready..."
+          until curl -s http://kibana-service:80/api/status | grep '"overall":{"level":"available"'; do
+            sleep 5
+          done
+          
+          echo "Kibana is ready. Setting up index patterns..."
+          
+          # Create index pattern for healthcare-chatbot logs
+          curl -X POST -H "Content-Type: application/json" -H "kbn-xsrf: true" \
+            http://kibana-service:80/api/saved_objects/index-pattern/healthcare-chatbot \
+            -d '{
+              "attributes": {
+                "title": "healthcare-chatbot-*",
+                "timeFieldName": "@timestamp"
+              }
+            }'
+          
+          echo "\nIndex pattern created. Creating dashboard..."
+          
+          # Create dashboard for healthcare monitoring
+          curl -X POST -H "Content-Type: application/json" -H "kbn-xsrf: true" \
+            http://kibana-service:80/api/saved_objects/dashboard/healthcare-monitoring \
+            -d '{
+              "attributes": {
+                "title": "Healthcare Chatbot Monitoring",
+                "description": "Real-time monitoring dashboard for Healthcare Chatbot",
+                "panelsJSON": "[]"
+              }
+            }'
+          
+          echo "\nSetup complete!"
+      restartPolicy: OnFailure
+  backoffLimit: 3

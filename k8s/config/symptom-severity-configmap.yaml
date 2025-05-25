@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: symptom-severity
+  namespace: healthcare-chatbot
+data:
+  Symptom_severity.csv: |
+    Symptom,weight
+    itching,1
+    skin_rash,3
+    nodal_skin_eruptions,4
+    continuous_sneezing,4
+    shivering,5
+    chills,3
+    joint_pain,3
+    stomach_pain,5
+    acidity,3
+    ulcers_on_tongue,4
+    muscle_wasting,3
+    vomiting,5
+    burning_micturition,6
+    spotting_urination,6
+    fatigue,4
+    weight_gain,3
+    anxiety,4
+    cold_hands_and_feets,4
+    mood_swings,3
+    weight_loss,3
+    restlessness,5
+    lethargy,2
+    patches_in_throat,6
+    irregular_sugar_level,5
+    cough,4
+    high_fever,7
+    sunken_eyes,3
+    breathlessness,4
+    sweating,3
+    dehydration,4
+    indigestion,5

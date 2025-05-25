@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: healthcare-data
+  namespace: healthcare-chatbot
+data:
+  diseases.txt: |
+    vertigo paroymsal positional vertigo
+    aids
+    acne
+    alcoholic hepatitis
+    allergy
+    arthritis
+    bronchial asthma
+    cervical spondylosis
+    chicken pox
+    chronic cholestasis
+    common cold
+    dengue
+    diabetes
+    dimorphic hemmorhoids
+    drug reaction
+    fungal infection
+    gerd
+    gastroenteritis
+    heart attack
+    hepatitis b
+    hepatitis c
+    hepatitis d
+    hepatitis e
+    hypertension
+    hyperthyroidism
+    hypoglycemia
+    hypothyroidism
+    impetigo
+    jaundice
+    malaria
+    migraine
+    osteoarthristis
+    paralysis
+    peptic ulcer diseae
+    pneumonia
+    psoriasis
+    tuberculosis
+    typhoid
+    urinary tract infection
+    varicose veins
+    hepatitis a

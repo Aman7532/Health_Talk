@@ -1,0 +1,20 @@
+Starting Healthcare Chatbot application
+An error occurred: division by zero
+Traceback (most recent call last):
+  File "/Users/amanagarwal/Desktop/RAG-based-Healthcare-Chatbot-main/test_elasticsearch_logging.py", line 88, in test_logging
+    result = 10 / 0
+             ~~~^~~
+ZeroDivisionError: division by zero
+Processing user request: 'What are the symptoms of diabetes?'
+Generated response about diabetes symptoms
+API rate limit approaching
+Starting Healthcare Chatbot application
+An error occurred: division by zero
+Traceback (most recent call last):
+  File "/Users/amanagarwal/Desktop/RAG-based-Healthcare-Chatbot-main/test_elasticsearch_logging.py", line 89, in test_logging
+    result = 10 / 0
+             ~~~^~~
+ZeroDivisionError: division by zero
+Processing user request: 'What are the symptoms of diabetes?'
+Generated response about diabetes symptoms
+API rate limit approaching

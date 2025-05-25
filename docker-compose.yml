@@ -1,65 +1,73 @@
-version: '3'
-
 services:
-  backend:
-    build:
-      context: ./healthcare_chatbot_backend
-      dockerfile: Dockerfile
+  healthcare-chatbot:
+    build: .
+    image: docker.io/aman7532/healthcare-chatbot:latest
     ports:
       - "3000:3000"
-    volumes:
-      - ./healthcare_chatbot_backend:/app
     environment:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
-    command: python chatpdf1.py
-    networks:
-      - chatbot-network
-
-  frontend:
-    build:
-      context: ./healthcare_chatbot_frontend
-      dockerfile: Dockerfile
-    ports:
-      - "80:3000"
     volumes:
-      - ./healthcare_chatbot_frontend:/app
-    depends_on:
-      - backend
+      - ./data:/app/data
+      - ./ExtraTrees:/app/ExtraTrees
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
-      - chatbot-network
+      - app-network
 
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.9
-    ports:
-      - "9200:9200"
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.14.0
+    container_name: elasticsearch
     environment:
       - discovery.type=single-node
-      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
     networks:
-      - chatbot-network
+      - app-network
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:7.14.0
+    container_name: logstash
+    volumes:
+      - ./k8s/logstash-config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+      - ./k8s/logstash-config/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
+    ports:
+      - "5044:5000/tcp"
+    environment:
+      LS_JAVA_OPTS: "-Xmx256m -Xms256m"
+    depends_on:
+      - elasticsearch
+    networks:
+      - app-network
 
   kibana:
-    image: docker.elastic.co/kibana/kibana:7.17.9
+    image: docker.elastic.co/kibana/kibana:7.14.0
+    container_name: kibana
     ports:
       - "5601:5601"
     environment:
-      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
     depends_on:
       - elasticsearch
     networks:
-      - chatbot-network
-
-  logstash:
-    image: docker.elastic.co/logstash/logstash:7.17.9
-    ports:
-      - "5044:5044"
-    volumes:
-      - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf
-    depends_on:
-      - elasticsearch
-    networks:
-      - chatbot-network
+      - app-network
 
 networks:
-  chatbot-network:
-    driver: bridge 
+  app-network:
+    driver: bridge
+
+volumes:
+  esdata:
+    driver: local

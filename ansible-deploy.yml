@@ -1,0 +1,182 @@
+---
+- name: Deploy Healthcare Chatbot to Kubernetes with ELK Stack
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    docker_registry: docker.io/aman7532
+    image_tag: latest
+    google_api_key_base64: "QUl6YVN5Qm1zcER4clRnNTFVLWtSS1JDWEVtVnY1bjNCa2k4SFh3"
+    kubeconfig: "{{ lookup('env', 'KUBECONFIG') }}"
+    elasticsearch_host: "elasticsearch-service"
+    elasticsearch_port: "9200"
+    kibana_host: "kibana-service"
+    kibana_port: "80"
+    namespace: "healthcare-chatbot"
+  
+  tasks:
+    - name: Create project directory
+      file:
+        path: "{{ playbook_dir }}/build"
+        state: directory
+        mode: '0755'
+      
+      
+    - name: Create Kubernetes namespace
+      k8s:
+        kubeconfig: "{{ kubeconfig }}"
+        state: present
+        src: "{{ playbook_dir }}/k8s/namespace.yaml"
+      
+    - name: Create Kubernetes secrets
+      k8s:
+        kubeconfig: "{{ kubeconfig }}"
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: app-secrets
+            namespace: healthcare-chatbot
+          type: Opaque
+          data:
+            google-api-key: "{{ google_api_key_base64 }}"
+            
+    - name: Create symptom-description ConfigMap
+      k8s:
+        kubeconfig: "{{ kubeconfig }}"
+        state: present
+        src: "{{ playbook_dir }}/k8s/config/symptom-description-configmap.yaml"
+        
+    - name: Create symptom-precaution ConfigMap
+      k8s:
+        kubeconfig: "{{ kubeconfig }}"
+        state: present
+        src: "{{ playbook_dir }}/k8s/config/symptom-precaution-configmap.yaml"
+        
+    - name: Create symptom-severity ConfigMap
+      k8s:
+        kubeconfig: "{{ kubeconfig }}"
+        state: present
+        src: "{{ playbook_dir }}/k8s/config/symptom-severity-configmap.yaml"
+        
+    - name: Create diseases ConfigMap
+      k8s:
+        kubeconfig: "{{ kubeconfig }}"
+        state: present
+        src: "{{ playbook_dir }}/k8s/config/diseases-configmap.yaml"
+        
+    - name: Create disease description ConfigMap
+      k8s:
+        kubeconfig: "{{ kubeconfig }}"
+        state: present
+        src: "{{ playbook_dir }}/k8s/config/disease-description-configmap.yaml"
+        
+    - name: Create env ConfigMap
+      k8s:
+        kubeconfig: "{{ kubeconfig }}"
+        state: present
+        src: "{{ playbook_dir }}/k8s/config/env-configmap.yaml"
+        
+    - name: Create logging-config ConfigMap
+      k8s:
+        kubeconfig: "{{ kubeconfig }}"
+        state: present
+        src: "{{ playbook_dir }}/k8s/config/logging-config.yaml"
+        
+
+    - name: Deploy persistent volumes
+      k8s:
+        kubeconfig: "{{ kubeconfig }}"
+        state: present
+        src: "{{ playbook_dir }}/k8s/persistent-volumes.yaml"
+      
+    - name: Deploy Elasticsearch
+      k8s:
+        kubeconfig: "{{ kubeconfig }}"
+        state: present
+        src: "{{ playbook_dir }}/k8s/elk/elasticsearch-deployment.yaml"
+      
+    - name: Wait for Elasticsearch to be ready
+      k8s_info:
+        kubeconfig: "{{ kubeconfig }}"
+        kind: Deployment
+        name: elasticsearch
+        namespace: healthcare-chatbot
+      register: es_deployment_status
+      until: es_deployment_status.resources[0].status.availableReplicas is defined and es_deployment_status.resources[0].status.availableReplicas == es_deployment_status.resources[0].spec.replicas
+      retries: 30
+      delay: 10
+      
+    - name: Deploy Logstash
+      k8s:
+        kubeconfig: "{{ kubeconfig }}"
+        state: present
+        src: "{{ playbook_dir }}/k8s/elk/logstash-deployment.yaml"
+      
+    - name: Deploy Kibana
+      k8s:
+        kubeconfig: "{{ kubeconfig }}"
+        state: present
+        src: "{{ playbook_dir }}/k8s/elk/kibana-deployment.yaml"
+        
+    - name: Wait for Kibana to be ready
+      k8s_info:
+        kubeconfig: "{{ kubeconfig }}"
+        kind: Deployment
+        name: kibana
+        namespace: healthcare-chatbot
+      register: kibana_deployment_status
+      until: kibana_deployment_status.resources[0].status.availableReplicas is defined and kibana_deployment_status.resources[0].status.availableReplicas == kibana_deployment_status.resources[0].spec.replicas
+      retries: 30
+      delay: 10
+      
+    - name: Deploy Filebeat
+      k8s:
+        kubeconfig: "{{ kubeconfig }}"
+        state: present
+        src: "{{ playbook_dir }}/k8s/filebeat-kubernetes.yaml"
+      
+    - name: Template app deployment file
+      template:
+        src: "{{ playbook_dir }}/k8s/app/healthcare-chatbot-deployment.yaml"
+        dest: "{{ playbook_dir }}/build/healthcare-chatbot-deployment.yaml"
+      vars:
+        DOCKER_REGISTRY: "{{ docker_registry }}"
+        IMAGE_TAG: "{{ image_tag }}"
+        ELASTICSEARCH_HOST: "{{ elasticsearch_host }}"
+        ELASTICSEARCH_PORT: "{{ elasticsearch_port }}"
+      
+    - name: Deploy application
+      k8s:
+        kubeconfig: "{{ kubeconfig }}"
+        state: present
+        src: "{{ playbook_dir }}/build/healthcare-chatbot-deployment.yaml"
+      
+    - name: Wait for application deployment to complete
+      k8s_info:
+        kubeconfig: "{{ kubeconfig }}"
+        kind: Deployment
+        name: healthcare-chatbot
+        namespace: healthcare-chatbot
+      register: deployment_status
+      until: deployment_status.resources[0].status.availableReplicas is defined and deployment_status.resources[0].status.availableReplicas == deployment_status.resources[0].spec.replicas
+      retries: 30
+      delay: 10
+      
+    - name: Display access information
+      debug:
+        msg: |
+          Healthcare Chatbot deployment completed successfully!
+          
+          To access the services locally, set up port forwarding:
+          
+          Healthcare Chatbot: kubectl port-forward -n healthcare-chatbot svc/healthcare-chatbot-service 30000:80
+          Elasticsearch: kubectl port-forward -n healthcare-chatbot svc/elasticsearch-service 30001:9200
+          Kibana: kubectl port-forward -n healthcare-chatbot svc/kibana-service 30002:5601
+          
+          Then access:
+          - Healthcare Chatbot: http://localhost:30000
+          - Kibana: http://localhost:30002
+          
+          Note: You will need to manually set up Kibana visualizations through the Kibana UI.

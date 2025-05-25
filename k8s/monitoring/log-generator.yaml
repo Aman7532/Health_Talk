@@ -1,0 +1,265 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: log-generator-script
+  namespace: healthcare-chatbot
+data:
+  generate_logs.py: |
+    #!/usr/bin/env python3
+    import requests
+    import json
+    import time
+    import random
+    from datetime import datetime
+    import uuid
+    
+    # Logstash endpoint
+    LOGSTASH_URL = "http://logstash-service:9600"
+    
+    # Healthcare Chatbot service
+    CHATBOT_URL = "http://healthcare-chatbot-service"
+    
+    # Generate a unique session ID
+    SESSION_ID = str(uuid.uuid4())
+    
+    # Function to send logs to Logstash
+    def send_log_to_logstash(log_entry):
+        try:
+            response = requests.post(LOGSTASH_URL, json=log_entry)
+            print(f"Log sent to Logstash. Response: {response.status_code}")
+            return response.status_code
+        except Exception as e:
+            print(f"Error sending log to Logstash: {e}")
+            return None
+    
+    # Simulate performance monitoring logs
+    def generate_performance_logs():
+        print("\nGenerating performance monitoring logs...")
+        
+        # Simulate chatbot response time logs
+        for i in range(3):
+            response_time = random.uniform(0.2, 2.0)  # Response time between 200ms and 2s
+            cpu_usage = random.uniform(20, 80)  # Simulated CPU usage
+            memory_usage = random.uniform(30, 90)  # Simulated memory usage
+            
+            log_entry = {
+                "@timestamp": datetime.utcnow().isoformat(),
+                "type": "performance",
+                "component": "chatbot",
+                "metric": "response_time",
+                "value": response_time,
+                "unit": "seconds",
+                "cpu_usage": cpu_usage,
+                "memory_usage": memory_usage,
+                "session_id": SESSION_ID,
+                "user_query": f"Sample health question {i+1}"
+            }
+            
+            send_log_to_logstash(log_entry)
+            time.sleep(1)
+        
+        # Simulate disease prediction performance logs
+        symptoms = [
+            ["fever", "cough", "fatigue"],
+            ["headache", "nausea", "vomiting"],
+            ["joint_pain", "skin_rash", "fatigue"]
+        ]
+        
+        for i in range(3):
+            prediction_time = random.uniform(0.5, 3.0)  # Prediction time between 500ms and 3s
+            model_memory = random.uniform(500, 1500)  # Memory usage in MB
+            cpu_usage = random.uniform(30, 90)  # Simulated CPU usage
+            
+            log_entry = {
+                "@timestamp": datetime.utcnow().isoformat(),
+                "type": "performance",
+                "component": "disease_prediction",
+                "metric": "prediction_time",
+                "value": prediction_time,
+                "unit": "seconds",
+                "model_memory_usage": model_memory,
+                "model_name": "ExtraTrees",
+                "cpu_usage": cpu_usage,
+                "session_id": SESSION_ID,
+                "symptoms": symptoms[i % len(symptoms)]
+            }
+            
+            send_log_to_logstash(log_entry)
+            time.sleep(1)
+        
+        # Simulate Google API call performance
+        for i in range(2):
+            api_response_time = random.uniform(0.3, 1.5)  # API response time between 300ms and 1.5s
+            
+            log_entry = {
+                "@timestamp": datetime.utcnow().isoformat(),
+                "type": "performance",
+                "component": "google_api",
+                "metric": "api_response_time",
+                "value": api_response_time,
+                "unit": "seconds",
+                "api_name": "GoogleGenerativeAI",
+                "session_id": SESSION_ID
+            }
+            
+            send_log_to_logstash(log_entry)
+            time.sleep(1)
+    
+    # Simulate security and compliance logs
+    def generate_security_logs():
+        print("\nGenerating security and compliance logs...")
+        
+        # Simulate user authentication logs
+        user_ips = [
+            "192.168.1.101", "192.168.1.102", "192.168.1.103",
+            "10.0.0.1", "10.0.0.2", "10.0.0.3"
+        ]
+        
+        for i in range(2):
+            user_ip = random.choice(user_ips)
+            success = random.choice([True, True, True, False])  # 75% success rate
+            
+            log_entry = {
+                "@timestamp": datetime.utcnow().isoformat(),
+                "type": "security",
+                "event": "authentication",
+                "user_id": f"user_{random.randint(1000, 9999)}",
+                "ip_address": user_ip,
+                "success": success,
+                "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                "session_id": SESSION_ID
+            }
+            
+            send_log_to_logstash(log_entry)
+            time.sleep(1)
+        
+        # Simulate data access logs
+        for i in range(3):
+            user_ip = random.choice(user_ips)
+            data_type = random.choice(["patient_history", "symptom_data", "prediction_results"])
+            
+            log_entry = {
+                "@timestamp": datetime.utcnow().isoformat(),
+                "type": "compliance",
+                "event": "data_access",
+                "user_id": f"user_{random.randint(1000, 9999)}",
+                "ip_address": user_ip,
+                "data_type": data_type,
+                "action": random.choice(["read", "write"]),
+                "session_id": SESSION_ID
+            }
+            
+            send_log_to_logstash(log_entry)
+            time.sleep(1)
+        
+        # Simulate unusual access pattern
+        if random.random() < 0.3:  # 30% chance of unusual access
+            log_entry = {
+                "@timestamp": datetime.utcnow().isoformat(),
+                "type": "security",
+                "event": "unusual_access",
+                "user_id": f"user_{random.randint(1000, 9999)}",
+                "ip_address": "203.0.113." + str(random.randint(1, 254)),  # Unknown IP range
+                "severity": "high",
+                "description": "Multiple failed login attempts from unknown IP",
+                "session_id": SESSION_ID
+            }
+            
+            send_log_to_logstash(log_entry)
+            time.sleep(1)
+    
+    # Simulate system load monitoring
+    def generate_system_load_logs():
+        print("\nGenerating system load logs...")
+        
+        # Simulate system metrics
+        cpu_percent = random.uniform(20, 90)
+        memory_percent = random.uniform(30, 85)
+        disk_percent = random.uniform(40, 75)
+        
+        log_entry = {
+            "@timestamp": datetime.utcnow().isoformat(),
+            "type": "system",
+            "event": "resource_usage",
+            "cpu_percent": cpu_percent,
+            "memory_percent": memory_percent,
+            "disk_percent": disk_percent,
+            "pod_name": "healthcare-chatbot-pod",
+            "node_name": "kind-node"
+        }
+        
+        send_log_to_logstash(log_entry)
+        
+        # Simulate high load condition
+        if random.random() < 0.2:  # 20% chance of high load
+            log_entry = {
+                "@timestamp": datetime.utcnow().isoformat(),
+                "type": "alert",
+                "event": "high_load",
+                "cpu_percent": random.uniform(85, 98),
+                "memory_percent": random.uniform(80, 95),
+                "severity": "warning",
+                "pod_name": "healthcare-chatbot-pod",
+                "node_name": "kind-node"
+            }
+            
+            send_log_to_logstash(log_entry)
+    
+    # Main function to generate all types of logs
+    def generate_all_logs():
+        print("Starting to generate logs for Healthcare Chatbot monitoring...")
+        
+        while True:
+            try:
+                # Generate initial system load logs
+                generate_system_load_logs()
+                
+                # Generate performance logs
+                generate_performance_logs()
+                
+                # Generate security and compliance logs
+                generate_security_logs()
+                
+                # Generate final system load logs
+                generate_system_load_logs()
+                
+                print("\nFinished generating logs. Waiting before next batch...")
+                time.sleep(30)  # Wait 30 seconds before generating more logs
+            except Exception as e:
+                print(f"Error generating logs: {e}")
+                time.sleep(10)  # Wait 10 seconds before retrying
+    
+    if __name__ == "__main__":
+        generate_all_logs()
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: log-generator
+  namespace: healthcare-chatbot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: log-generator
+  template:
+    metadata:
+      labels:
+        app: log-generator
+    spec:
+      containers:
+      - name: log-generator
+        image: python:3.9-slim
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          pip install requests
+          python /scripts/generate_logs.py
+        volumeMounts:
+        - name: script-volume
+          mountPath: /scripts
+      volumes:
+      - name: script-volume
+        configMap:
+          name: log-generator-script
+          defaultMode: 0777
